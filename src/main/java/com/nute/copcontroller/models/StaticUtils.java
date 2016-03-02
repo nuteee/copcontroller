@@ -1,6 +1,8 @@
 package com.nute.copcontroller.models;
 
 import java.io.File;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Scanner;
 
 import org.slf4j.Logger;
@@ -11,7 +13,8 @@ import com.nute.copcontroller.entities.GPSLocation;
 public class StaticUtils {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StaticUtils.class);
 
-	public static void readMap(java.util.Map<Long, GPSLocation> lmap, String name) throws CopControllerException {
+	public static void readMap(Map<Long, GPSLocation> lmap, String name) throws CopControllerException {
+		LOGGER.debug("Reading lmap...");
 		File file = new File(name);
 
 		Long ref = 0L;
@@ -28,5 +31,22 @@ public class StaticUtils {
 		} catch (Exception e) {
 			throw new CopControllerException("Hibás noderef2GPS leképezés.", e);
 		}
+		LOGGER.debug("lmap is processed.");
+	}
+	
+	public static Long getClosestNode(Map<Long, GPSLocation> lmap, GPSLocation loc) {
+//		LOGGER.debug("Getting closest node to: [{}, {}]", loc.getLatitude(), loc.getLongitude());
+		Long ret = 0L;
+		Double distance = Double.MAX_VALUE;
+		for(Entry<Long, GPSLocation> entry : lmap.entrySet()) {
+			Double tmp = loc.getDistance(entry.getValue());
+			if(tmp < distance) {
+				distance = tmp;
+				ret = entry.getKey();
+//				LOGGER.debug("Found a closer node: {}, ({} m)", ret, distance);
+			}
+		}
+		
+		return ret;		
 	}
 }
