@@ -1,7 +1,7 @@
 package com.nute.copcontroller.ui;
 
-import static com.nute.copcontroller.models.StaticUtils.readMap;
-import static com.nute.copcontroller.models.StaticUtils.getClosestNode;
+import static com.nute.copcontroller.commons.StaticUtils.getClosestNode;
+import static com.nute.copcontroller.commons.StaticUtils.readMap;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -13,16 +13,17 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Point2D;
-import java.io.DataOutputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
+import java.io.InputStreamReader;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,6 +39,10 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.event.MouseInputAdapter;
@@ -66,10 +71,11 @@ import com.nute.copcontroller.entities.WaypointCaught;
 import com.nute.copcontroller.entities.WaypointGangster;
 import com.nute.copcontroller.entities.WaypointPolice;
 import com.nute.copcontroller.models.CopControllerException;
-import com.nute.copcontroller.models.StaticUtils;
+import com.nute.copcontroller.models.TelnetWrapper;
 
-@SuppressWarnings("serial")
 public class CopController extends JFrame {
+	private static final long serialVersionUID = 1L;
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(CopController.class);
 
 	private WaypointPainter<Waypoint> waypointPainter = new WaypointPainter<Waypoint>();
@@ -78,20 +84,18 @@ public class CopController extends JFrame {
 	private Scanner scanner;
 	private String hostname = "localhost";
 	private Integer port = 10007;
+	private List<Long> copIds = new ArrayList<Long>();
+
+	private TelnetWrapper telnetSwingWorker;
 
 	private SwingWorker<Void, Traffic> worker = new SwingWorker<Void, Traffic>() {
 
 		@Override
-		protected Void doInBackground() throws Exception {
-			try (Socket trafficServer = new Socket(hostname, port)) {
+		protected synchronized Void doInBackground() throws Exception {
+			try {
+				LOGGER.debug("Connected to: {}:{}", hostname, port);
 
-				OutputStream os = trafficServer.getOutputStream();
-				DataOutputStream dos = new DataOutputStream(os);
-
-				dos.writeUTF("<disp>");
-				InputStream is = trafficServer.getInputStream();
-
-				scanner = new Scanner(is);
+				scanner = new Scanner(telnetSwingWorker.getInputStreamWithMessage("<disp>"));
 
 				for (;;) {
 					Set<Waypoint> waypoints = new HashSet<Waypoint>();
@@ -112,9 +116,10 @@ public class CopController extends JFrame {
 					Double lat, lon;
 					Double lat2, lon2;
 					Integer num_captured_gangsters;
+					Long cop_id = null;
 					String name = "Cop";
 
-					Map<String, Integer> cops = new HashMap<>();
+					Map<String, Integer> scores = new HashMap<>();
 
 					for (int i = 0; i < size; ++i) {
 
@@ -126,12 +131,14 @@ public class CopController extends JFrame {
 
 						if (type == 1) {
 							num_captured_gangsters = scanner.nextInt();
+							cop_id = scanner.nextLong();
+							copIds.add(cop_id);
 							name = scanner.next();
 
-							if (cops.containsKey(name)) {
-								cops.put(name, cops.get(name) + num_captured_gangsters);
+							if (scores.containsKey(name)) {
+								scores.put(name, scores.get(name) + num_captured_gangsters);
 							} else {
-								cops.put(name, num_captured_gangsters);
+								scores.put(name, num_captured_gangsters);
 							}
 						}
 
@@ -149,7 +156,7 @@ public class CopController extends JFrame {
 						lon += step * ((lon2 - lon) / maxstep);
 
 						if (type == 1) {
-							waypoints.add(new WaypointPolice(lat, lon, name));
+							waypoints.add(new WaypointPolice(lat, lon, name, cop_id));
 						} else if (type == 2) {
 							waypoints.add(new WaypointGangster(lat, lon));
 						} else if (type == 3) {
@@ -178,15 +185,12 @@ public class CopController extends JFrame {
 					sb.append(":");
 					sb.append(2 * time);
 					sb.append("|");
-					// sb.append(" Justine - Car Window (log player for Robocar City Emulator, Robocar World Championshin in Debrecen)");
-					sb.append(Arrays.toString(cops.entrySet().toArray()));
+					sb.append(Arrays.toString(scores.entrySet().toArray()));
 
 					publish(new Traffic(waypoints, sb.toString()));
 				}
 			} catch (IOException e) {
-
-				System.out.println(e.toString());
-
+				LOGGER.error(e.getMessage());
 				CopController.this.dispatchEvent(new WindowEvent(CopController.this, WindowEvent.WINDOW_CLOSING));
 			}
 
@@ -212,6 +216,8 @@ public class CopController extends JFrame {
 
 	Action paintTimer = new AbstractAction() {
 
+		private static final long serialVersionUID = 1L;
+
 		@Override
 		public void actionPerformed(ActionEvent e) {
 
@@ -235,6 +241,7 @@ public class CopController extends JFrame {
 					Double lat, lon;
 					Double lat2, lon2;
 					Integer num_captured_gangsters;
+					Long cop_id = null;
 					String name = "Cop";
 
 					Map<String, Integer> cops = new HashMap<String, Integer>();
@@ -249,6 +256,8 @@ public class CopController extends JFrame {
 
 						if (type == 1) {
 							num_captured_gangsters = scanner.nextInt();
+							cop_id = scanner.nextLong();
+							copIds.add(cop_id);
 							name = scanner.next();
 
 							if (cops.containsKey(name)) {
@@ -272,7 +281,7 @@ public class CopController extends JFrame {
 						lon += step * ((lon2 - lon) / maxstep);
 
 						if (type == 1) {
-							waypoints.add(new WaypointPolice(lat, lon, name));
+							waypoints.add(new WaypointPolice(lat, lon, name, cop_id));
 						} else if (type == 2) {
 							waypoints.add(new WaypointGangster(lat, lon));
 						} else if (type == 3) {
@@ -320,10 +329,13 @@ public class CopController extends JFrame {
 		}
 	};
 
-	public CopController(Double lat, Double lon, Map<Long, GPSLocation> lmap, String hostname, int port) {
+	public CopController(Double lat, Double lon, Map<Long, GPSLocation> lmap, String hostname, int port) throws UnknownHostException,
+			IOException {
 		this.lmap = lmap;
 		this.hostname = hostname;
 		this.port = port;
+
+		telnetSwingWorker = new TelnetWrapper(hostname, port);
 
 		final TileFactory tileFactoryArray[] = { new DefaultTileFactory(new OSMTileFactoryInfo()),
 				new DefaultTileFactory(new VirtualEarthTileFactoryInfo(VirtualEarthTileFactoryInfo.MAP)),
@@ -367,14 +379,16 @@ public class CopController extends JFrame {
 
 					g2d.setFont(new Font("Serif", Font.BOLD, 14));
 					FontMetrics fm = g2d.getFontMetrics();
-					Integer nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName());
+					Integer nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - "
+							+ ((WaypointPolice) waypoint).getId().toString());
 					g2d.setColor(Color.GRAY);
 					Rectangle rect = new Rectangle((int) point.getX(), (int) point.getY(), nameWidth + 4, 20);
 					g2d.fill(rect);
 					g2d.setColor(Color.CYAN);
 					g2d.draw(rect);
 					g2d.setColor(Color.WHITE);
-					g2d.drawString(((WaypointPolice) waypoint).getName(), (int) point.getX() + 2, (int) point.getY() + 20 - 5);
+					g2d.drawString(((WaypointPolice) waypoint).getName() + " - " + ((WaypointPolice) waypoint).getId().toString(),
+							(int) point.getX() + 2, (int) point.getY() + 20 - 5);
 				} else if (waypoint instanceof WaypointGangster) {
 					g2d.drawImage(markerImgGangster, (int) point.getX() - markerImgGangster.getWidth(jxMapViewer), (int) point.getY()
 							- markerImgGangster.getHeight(jxMapViewer), null);
@@ -407,6 +421,68 @@ public class CopController extends JFrame {
 			}
 		});
 
+		JMenuBar menuBar = new JMenuBar();
+		JMenu menu = new JMenu("Control commands");
+		JMenuItem menuItem1 = new JMenuItem("Add 1 cop.", KeyEvent.VK_1);
+		menuItem1.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
+		JMenuItem menuItem10 = new JMenuItem("Add 10 cop.", KeyEvent.VK_2);
+		menuItem10.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_2, ActionEvent.ALT_MASK));
+
+		menuItem1.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					Process p = Runtime.getRuntime().exec(
+							new String[] { "/bin/sh", "/home/nute/Asztal/szakdoga/CopController/init_1_cop.sh" });
+					p.waitFor();
+
+					StringBuffer output = new StringBuffer();
+					BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+
+					String line = "";
+					while ((line = reader.readLine()) != null) {
+						output.append(line + "\n");
+					}
+					LOGGER.debug("Added 1 cop.");
+				} catch (IOException e1) {
+					LOGGER.error(e1.getMessage());
+				} catch (InterruptedException e2) {
+					LOGGER.error(e2.getMessage());
+				}
+			}
+		});
+
+		menuItem10.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					Process p = Runtime.getRuntime().exec(
+							new String[] { "/bin/sh", "/home/nute/Asztal/szakdoga/CopController/init_10_cop.sh" });
+					p.waitFor();
+
+					StringBuffer output = new StringBuffer();
+					BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+
+					String line = "";
+					while ((line = reader.readLine()) != null) {
+						output.append(line + "\n");
+					}
+					LOGGER.debug("Added 10 cops.");
+				} catch (IOException e1) {
+					LOGGER.error(e1.getMessage());
+				} catch (InterruptedException e2) {
+					LOGGER.error(e2.getMessage());
+				}
+			}
+		});
+
+		menu.add(menuItem1);
+		menu.add(menuItem10);
+		menuBar.add(menu);
+		this.setJMenuBar(menuBar);
+
 		setTitle("Gergő - Car Window (Cop controller for Robocar City Emulator, Robocar World Championshin in Debrecen)");
 		getContentPane().add(jxMapViewer);
 
@@ -422,6 +498,8 @@ public class CopController extends JFrame {
 		LOGGER.debug("Starting up the application.");
 
 		final Map<Long, GPSLocation> locationMap = new HashMap<>();
+		final String defaulHostname = "localhost";
+		final Integer defaultPort = 10007;
 
 		if (args.length == 1) {
 			readMap(locationMap, args[0]);
@@ -431,8 +509,12 @@ public class CopController extends JFrame {
 				@Override
 				public void run() {
 					Entry<Long, GPSLocation> loc = locationMap.entrySet().iterator().next();
-					new CopController(loc.getValue().getLatitude(), loc.getValue().getLongitude(), locationMap, "localhost", 10007)
-							.setVisible(Boolean.TRUE);
+					try {
+						new CopController(loc.getValue().getLatitude(), loc.getValue().getLongitude(), locationMap, defaulHostname,
+								defaultPort).setVisible(Boolean.TRUE);
+					} catch (IOException e) {
+						LOGGER.error(e.getMessage());
+					}
 				}
 			});
 		} else if (args.length == 2) {
@@ -444,8 +526,12 @@ public class CopController extends JFrame {
 				@Override
 				public void run() {
 					Entry<Long, GPSLocation> loc = locationMap.entrySet().iterator().next();
-					new CopController(loc.getValue().getLatitude(), loc.getValue().getLongitude(), locationMap, hostname, 10007)
-							.setVisible(Boolean.TRUE);
+					try {
+						new CopController(loc.getValue().getLatitude(), loc.getValue().getLongitude(), locationMap, hostname, defaultPort)
+								.setVisible(Boolean.TRUE);
+					} catch (IOException e) {
+						LOGGER.error(e.getMessage());
+					}
 				}
 			});
 
@@ -458,8 +544,12 @@ public class CopController extends JFrame {
 				@Override
 				public void run() {
 					Entry<Long, GPSLocation> loc = locationMap.entrySet().iterator().next();
-					new CopController(loc.getValue().getLatitude(), loc.getValue().getLongitude(), locationMap, hostname, port)
-							.setVisible(Boolean.TRUE);
+					try {
+						new CopController(loc.getValue().getLatitude(), loc.getValue().getLongitude(), locationMap, hostname, port)
+								.setVisible(Boolean.TRUE);
+					} catch (IOException e) {
+						LOGGER.error(e.getMessage());
+					}
 				}
 			});
 		}

@@ -1,0 +1,1 @@
+echo "<init guided Gergo 10 c>" | telnet localhost 10007

@@ -1,4 +1,4 @@
-package com.nute.copcontroller.models;
+package com.nute.copcontroller.commons;
 
 import java.io.File;
 import java.util.Map;
@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.nute.copcontroller.entities.GPSLocation;
+import com.nute.copcontroller.models.CopControllerException;
 
 public class StaticUtils {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StaticUtils.class);
