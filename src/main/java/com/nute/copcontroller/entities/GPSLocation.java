@@ -14,6 +14,10 @@ public class GPSLocation {
 		this.longitude = longitude;
 	}
 	
+	public GPSLocation(WaypointPolice w) {
+		this(w.getPosition().getLatitude(), w.getPosition().getLongitude());
+	}
+	
 	public GPSLocation(GeoPosition geoPosition) {
 		this.latitude = geoPosition.getLatitude();
 		this.longitude = geoPosition.getLongitude();

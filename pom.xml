@@ -30,6 +30,7 @@
 		<project.build.outputEncoding>UTF-8</project.build.outputEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<mainClass>com.nute.copcontroller.ui.CopController</mainClass>
+		<RESOURCE_PATH>${project.basedir}/src/main/resources</RESOURCE_PATH>
 	</properties>
 	<packaging>jar</packaging>
 	<dependencies>
@@ -217,6 +218,12 @@
 				</dependencies>
 			</plugin>
 		</plugins>
+		<resources>
+            <resource>
+                <directory>${RESOURCE_PATH}</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
 	</build>
 	<reporting>
 		<plugins>

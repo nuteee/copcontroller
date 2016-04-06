@@ -1,6 +1,5 @@
 package com.nute.copcontroller.ui;
 
-import static com.nute.copcontroller.commons.StaticUtils.getClosestNode;
 import static com.nute.copcontroller.commons.StaticUtils.readMap;
 
 import java.awt.Color;
@@ -22,8 +21,8 @@ import java.awt.geom.Point2D;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,6 +64,7 @@ import org.jxmapviewer.viewer.WaypointRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.nute.copcontroller.commons.StaticUtils;
 import com.nute.copcontroller.entities.GPSLocation;
 import com.nute.copcontroller.entities.Traffic;
 import com.nute.copcontroller.entities.WaypointCaught;
@@ -84,8 +84,7 @@ public class CopController extends JFrame {
 	private Scanner scanner;
 	private String hostname = "localhost";
 	private Integer port = 10007;
-	private List<Long> copIds = new ArrayList<Long>();
-
+	private Long selectedCop = null;
 	private TelnetWrapper telnetSwingWorker;
 
 	private SwingWorker<Void, Traffic> worker = new SwingWorker<Void, Traffic>() {
@@ -132,7 +131,6 @@ public class CopController extends JFrame {
 						if (type == 1) {
 							num_captured_gangsters = scanner.nextInt();
 							cop_id = scanner.nextLong();
-							copIds.add(cop_id);
 							name = scanner.next();
 
 							if (scores.containsKey(name)) {
@@ -156,7 +154,10 @@ public class CopController extends JFrame {
 						lon += step * ((lon2 - lon) / maxstep);
 
 						if (type == 1) {
-							waypoints.add(new WaypointPolice(lat, lon, name, cop_id));
+							WaypointPolice w = new WaypointPolice(lat, lon, name, cop_id);
+							if (w.getId().equals(selectedCop))
+								w.setSelected(true);
+							waypoints.add(w);
 						} else if (type == 2) {
 							waypoints.add(new WaypointGangster(lat, lon));
 						} else if (type == 3) {
@@ -257,7 +258,6 @@ public class CopController extends JFrame {
 						if (type == 1) {
 							num_captured_gangsters = scanner.nextInt();
 							cop_id = scanner.nextLong();
-							copIds.add(cop_id);
 							name = scanner.next();
 
 							if (cops.containsKey(name)) {
@@ -281,7 +281,10 @@ public class CopController extends JFrame {
 						lon += step * ((lon2 - lon) / maxstep);
 
 						if (type == 1) {
-							waypoints.add(new WaypointPolice(lat, lon, name, cop_id));
+							WaypointPolice w = new WaypointPolice(lat, lon, name, cop_id);
+							if (w.getId().equals(selectedCop))
+								w.setSelected(true);
+							waypoints.add(w);
 						} else if (type == 2) {
 							waypoints.add(new WaypointGangster(lat, lon));
 						} else if (type == 3) {
@@ -355,8 +358,26 @@ public class CopController extends JFrame {
 
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				LOGGER.debug("Mouse clicked at: {}",
-						getClosestNode(lmap, new GPSLocation(jxMapViewer.convertPointToGeoPosition(new Point(e.getX(), e.getY())))));
+				LOGGER.debug("Mousebutton: {}", e.getButton());
+
+				if (e.getButton() == MouseEvent.BUTTON1) {
+
+					Point mouseClick = new Point(e.getX(), e.getY());
+					GPSLocation gpsLocation = new GPSLocation(jxMapViewer.convertPointToGeoPosition(mouseClick));
+					selectedCop = StaticUtils.selectClosestCop(lmap, waypointPainter.getWaypoints(), gpsLocation);
+					LOGGER.debug("Nearest cop: {}", selectedCop);
+				}
+				else if(e.getButton() == MouseEvent.BUTTON3) {
+					Point mouseClick = new Point(e.getX(), e.getY());
+					GPSLocation gpsLocation = new GPSLocation(jxMapViewer.convertPointToGeoPosition(mouseClick));
+					Long nodeTo = StaticUtils.getClosestNode(lmap, gpsLocation);
+					
+					try {
+						StaticUtils.sendCop(lmap, waypointPainter.getWaypoints(), nodeTo);
+					} catch (URISyntaxException | IOException | InterruptedException e1) {
+						LOGGER.error(e1.getMessage());
+					}
+				}
 			}
 		});
 
@@ -379,16 +400,26 @@ public class CopController extends JFrame {
 
 					g2d.setFont(new Font("Serif", Font.BOLD, 14));
 					FontMetrics fm = g2d.getFontMetrics();
-					Integer nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - "
-							+ ((WaypointPolice) waypoint).getId().toString());
+
+					Integer nameWidth;
+					if (((WaypointPolice) waypoint).isSelected())
+						nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - "
+								+ ((WaypointPolice) waypoint).getId().toString() + " - SELECTED");
+					else
+						nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - "
+								+ ((WaypointPolice) waypoint).getId().toString());
 					g2d.setColor(Color.GRAY);
 					Rectangle rect = new Rectangle((int) point.getX(), (int) point.getY(), nameWidth + 4, 20);
 					g2d.fill(rect);
 					g2d.setColor(Color.CYAN);
 					g2d.draw(rect);
 					g2d.setColor(Color.WHITE);
-					g2d.drawString(((WaypointPolice) waypoint).getName() + " - " + ((WaypointPolice) waypoint).getId().toString(),
-							(int) point.getX() + 2, (int) point.getY() + 20 - 5);
+					if (((WaypointPolice) waypoint).isSelected())
+						g2d.drawString(((WaypointPolice) waypoint).getName() + " - " + ((WaypointPolice) waypoint).getId().toString()
+								+ " - SELECTED", (int) point.getX() + 2, (int) point.getY() + 20 - 5);
+					else
+						g2d.drawString(((WaypointPolice) waypoint).getName() + " - " + ((WaypointPolice) waypoint).getId().toString(),
+								(int) point.getX() + 2, (int) point.getY() + 20 - 5);
 				} else if (waypoint instanceof WaypointGangster) {
 					g2d.drawImage(markerImgGangster, (int) point.getX() - markerImgGangster.getWidth(jxMapViewer), (int) point.getY()
 							- markerImgGangster.getHeight(jxMapViewer), null);
@@ -433,8 +464,10 @@ public class CopController extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
-					Process p = Runtime.getRuntime().exec(
-							new String[] { "/bin/sh", "/home/nute/Asztal/szakdoga/CopController/init_1_cop.sh" });
+					String cmdPath = StaticUtils.getResourcePath() + "init_1_cop.sh";
+
+					LOGGER.debug("Relative path: {}", cmdPath);
+					Process p = Runtime.getRuntime().exec(new String[] { "/bin/sh", cmdPath });
 					p.waitFor();
 
 					StringBuffer output = new StringBuffer();
@@ -444,6 +477,7 @@ public class CopController extends JFrame {
 					while ((line = reader.readLine()) != null) {
 						output.append(line + "\n");
 					}
+					LOGGER.debug(output.toString());
 					LOGGER.debug("Added 1 cop.");
 				} catch (IOException e1) {
 					LOGGER.error(e1.getMessage());
@@ -458,8 +492,9 @@ public class CopController extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
-					Process p = Runtime.getRuntime().exec(
-							new String[] { "/bin/sh", "/home/nute/Asztal/szakdoga/CopController/init_10_cop.sh" });
+					String cmdPath = StaticUtils.getResourcePath() + "init_10_cop.sh";
+					LOGGER.debug("Relative path: {}", cmdPath);
+					Process p = Runtime.getRuntime().exec(new String[] { "/bin/sh", cmdPath });
 					p.waitFor();
 
 					StringBuffer output = new StringBuffer();
