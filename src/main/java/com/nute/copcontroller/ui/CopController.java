@@ -366,12 +366,11 @@ public class CopController extends JFrame {
 					GPSLocation gpsLocation = new GPSLocation(jxMapViewer.convertPointToGeoPosition(mouseClick));
 					selectedCop = StaticUtils.selectClosestCop(lmap, waypointPainter.getWaypoints(), gpsLocation);
 					LOGGER.debug("Nearest cop: {}", selectedCop);
-				}
-				else if(e.getButton() == MouseEvent.BUTTON3) {
+				} else if (e.getButton() == MouseEvent.BUTTON3) {
 					Point mouseClick = new Point(e.getX(), e.getY());
 					GPSLocation gpsLocation = new GPSLocation(jxMapViewer.convertPointToGeoPosition(mouseClick));
 					Long nodeTo = StaticUtils.getClosestNode(lmap, gpsLocation);
-					
+
 					try {
 						StaticUtils.sendCop(lmap, waypointPainter.getWaypoints(), nodeTo);
 					} catch (URISyntaxException | IOException | InterruptedException e1) {
@@ -454,12 +453,14 @@ public class CopController extends JFrame {
 
 		JMenuBar menuBar = new JMenuBar();
 		JMenu menu = new JMenu("Control commands");
-		JMenuItem menuItem1 = new JMenuItem("Add 1 cop.", KeyEvent.VK_1);
-		menuItem1.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
-		JMenuItem menuItem10 = new JMenuItem("Add 10 cop.", KeyEvent.VK_2);
-		menuItem10.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_2, ActionEvent.ALT_MASK));
+		JMenuItem menuItemAdd1Cop = new JMenuItem("Add 1 cop.", KeyEvent.VK_1);
+		menuItemAdd1Cop.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, ActionEvent.ALT_MASK));
+		JMenuItem menuItemAdd10Cops = new JMenuItem("Add 10 cops.", KeyEvent.VK_2);
+		menuItemAdd10Cops.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_2, ActionEvent.ALT_MASK));
+		JMenuItem menuItemAdd100Gangsters = new JMenuItem("Add 100 gangsters.", KeyEvent.VK_3);
+		menuItemAdd100Gangsters.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_3, ActionEvent.ALT_MASK));
 
-		menuItem1.addActionListener(new ActionListener() {
+		menuItemAdd1Cop.addActionListener(new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -487,12 +488,12 @@ public class CopController extends JFrame {
 			}
 		});
 
-		menuItem10.addActionListener(new ActionListener() {
+		menuItemAdd10Cops.addActionListener(new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
-					String cmdPath = StaticUtils.getResourcePath() + "init_10_cop.sh";
+					String cmdPath = StaticUtils.getResourcePath() + "init_100_gangsters.sh";
 					LOGGER.debug("Relative path: {}", cmdPath);
 					Process p = Runtime.getRuntime().exec(new String[] { "/bin/sh", cmdPath });
 					p.waitFor();
@@ -504,7 +505,7 @@ public class CopController extends JFrame {
 					while ((line = reader.readLine()) != null) {
 						output.append(line + "\n");
 					}
-					LOGGER.debug("Added 10 cops.");
+					LOGGER.debug("Added 100 gangsters.");
 				} catch (IOException e1) {
 					LOGGER.error(e1.getMessage());
 				} catch (InterruptedException e2) {
@@ -513,12 +514,39 @@ public class CopController extends JFrame {
 			}
 		});
 
-		menu.add(menuItem1);
-		menu.add(menuItem10);
+		menuItemAdd100Gangsters.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					String cmdPath = StaticUtils.getResourcePath() + "init_100_gangsters.sh";
+					LOGGER.debug("Relative path: {}", cmdPath);
+					Process p = Runtime.getRuntime().exec(new String[] { "/bin/sh", cmdPath });
+					p.waitFor();
+
+					StringBuffer output = new StringBuffer();
+					BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+
+					String line = "";
+					while ((line = reader.readLine()) != null) {
+						output.append(line + "\n");
+					}
+					LOGGER.debug("Added 100 gangsters.");
+				} catch (IOException e1) {
+					LOGGER.error(e1.getMessage());
+				} catch (InterruptedException e2) {
+					LOGGER.error(e2.getMessage());
+				}
+			}
+		});
+
+		menu.add(menuItemAdd1Cop);
+		menu.add(menuItemAdd10Cops);
+		menu.add(menuItemAdd100Gangsters);
 		menuBar.add(menu);
 		this.setJMenuBar(menuBar);
 
-		setTitle("Gergő - Car Window (Cop controller for Robocar City Emulator, Robocar World Championshin in Debrecen)");
+		setTitle("Balkus Gergő - Cop controller for Robocar City Emulator");
 		getContentPane().add(jxMapViewer);
 
 		Dimension screenDim = Toolkit.getDefaultToolkit().getScreenSize();

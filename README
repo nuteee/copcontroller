@@ -1,3 +1,0 @@
-
-$ mvn clean compile package site assembly:assembly
-$ java -jar target/site/justine-rcwin-0.0.16-jar-with-dependencies.jar ../../../lmap.txt justine.inf.unideb.hu
