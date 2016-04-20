@@ -1,4 +1,4 @@
-package com.nute.copcontroller.models;
+package com.nute.copcontroller.entities;
 
 public class CopControllerException extends Throwable {
 

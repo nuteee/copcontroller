@@ -65,13 +65,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.nute.copcontroller.commons.StaticUtils;
+import com.nute.copcontroller.entities.CopControllerException;
 import com.nute.copcontroller.entities.GPSLocation;
+import com.nute.copcontroller.entities.TelnetWrapper;
 import com.nute.copcontroller.entities.Traffic;
 import com.nute.copcontroller.entities.WaypointCaught;
 import com.nute.copcontroller.entities.WaypointGangster;
 import com.nute.copcontroller.entities.WaypointPolice;
-import com.nute.copcontroller.models.CopControllerException;
-import com.nute.copcontroller.models.TelnetWrapper;
 
 public class CopController extends JFrame {
 	private static final long serialVersionUID = 1L;
@@ -372,7 +372,8 @@ public class CopController extends JFrame {
 					Long nodeTo = StaticUtils.getClosestNode(lmap, gpsLocation);
 
 					try {
-						StaticUtils.sendCop(lmap, waypointPainter.getWaypoints(), nodeTo);
+						if (selectedCop != null)
+							StaticUtils.sendCop(lmap, waypointPainter.getWaypoints(), nodeTo);
 					} catch (URISyntaxException | IOException | InterruptedException e1) {
 						LOGGER.error(e1.getMessage());
 					}
@@ -402,11 +403,9 @@ public class CopController extends JFrame {
 
 					Integer nameWidth;
 					if (((WaypointPolice) waypoint).isSelected())
-						nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - "
-								+ ((WaypointPolice) waypoint).getId().toString() + " - SELECTED");
+						nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - SELECTED");
 					else
-						nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName() + " - "
-								+ ((WaypointPolice) waypoint).getId().toString());
+						nameWidth = fm.stringWidth(((WaypointPolice) waypoint).getName());
 					g2d.setColor(Color.GRAY);
 					Rectangle rect = new Rectangle((int) point.getX(), (int) point.getY(), nameWidth + 4, 20);
 					g2d.fill(rect);
@@ -414,11 +413,10 @@ public class CopController extends JFrame {
 					g2d.draw(rect);
 					g2d.setColor(Color.WHITE);
 					if (((WaypointPolice) waypoint).isSelected())
-						g2d.drawString(((WaypointPolice) waypoint).getName() + " - " + ((WaypointPolice) waypoint).getId().toString()
-								+ " - SELECTED", (int) point.getX() + 2, (int) point.getY() + 20 - 5);
+						g2d.drawString(((WaypointPolice) waypoint).getName() + " - SELECTED", (int) point.getX() + 2,
+								(int) point.getY() + 20 - 5);
 					else
-						g2d.drawString(((WaypointPolice) waypoint).getName() + " - " + ((WaypointPolice) waypoint).getId().toString(),
-								(int) point.getX() + 2, (int) point.getY() + 20 - 5);
+						g2d.drawString(((WaypointPolice) waypoint).getName(), (int) point.getX() + 2, (int) point.getY() + 20 - 5);
 				} else if (waypoint instanceof WaypointGangster) {
 					g2d.drawImage(markerImgGangster, (int) point.getX() - markerImgGangster.getWidth(jxMapViewer), (int) point.getY()
 							- markerImgGangster.getHeight(jxMapViewer), null);
@@ -442,7 +440,6 @@ public class CopController extends JFrame {
 			int index = 0;
 
 			public void keyPressed(KeyEvent evt) {
-
 				if (evt.getKeyCode() == KeyEvent.VK_SPACE) {
 					jxMapViewer.setTileFactory(tileFactoryArray[++index % 4]);
 					jxMapViewer.repaint();
@@ -493,7 +490,8 @@ public class CopController extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
-					String cmdPath = StaticUtils.getResourcePath() + "init_100_gangsters.sh";
+					String cmdPath = StaticUtils.getResourcePath() + "init_10_cop.sh";
+
 					LOGGER.debug("Relative path: {}", cmdPath);
 					Process p = Runtime.getRuntime().exec(new String[] { "/bin/sh", cmdPath });
 					p.waitFor();
@@ -505,7 +503,8 @@ public class CopController extends JFrame {
 					while ((line = reader.readLine()) != null) {
 						output.append(line + "\n");
 					}
-					LOGGER.debug("Added 100 gangsters.");
+					LOGGER.debug(output.toString());
+					LOGGER.debug("Added 10 cops.");
 				} catch (IOException e1) {
 					LOGGER.error(e1.getMessage());
 				} catch (InterruptedException e2) {
@@ -532,11 +531,9 @@ public class CopController extends JFrame {
 						output.append(line + "\n");
 					}
 					LOGGER.debug("Added 100 gangsters.");
-				} catch (IOException e1) {
+				} catch (IOException | InterruptedException e1) {
 					LOGGER.error(e1.getMessage());
-				} catch (InterruptedException e2) {
-					LOGGER.error(e2.getMessage());
-				}
+				} 
 			}
 		});
 

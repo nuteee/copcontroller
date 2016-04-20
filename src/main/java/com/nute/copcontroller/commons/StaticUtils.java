@@ -20,9 +20,9 @@ import org.jxmapviewer.viewer.Waypoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.nute.copcontroller.entities.CopControllerException;
 import com.nute.copcontroller.entities.GPSLocation;
 import com.nute.copcontroller.entities.WaypointPolice;
-import com.nute.copcontroller.models.CopControllerException;
 
 public class StaticUtils {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StaticUtils.class);
@@ -76,17 +76,20 @@ public class StaticUtils {
 				if (tmpDistance < distance) {
 					if (selectedCop != null)
 						selectedCop.setSelected(false);
-
-					selectedCop = (WaypointPolice) w;
-					selectedCop.setSelected(true);
-					selected = selectedCop.getId();
-					distance = tmpDistance;
+					if (tmpDistance < 2500l) {
+						selectedCop = (WaypointPolice) w;
+						selectedCop.setSelected(true);
+						selected = selectedCop.getId();
+						distance = tmpDistance;
+					}
 				}
 			}
 		}
 
-		// LOGGER.debug("Cop ID: {}, Distance: {}, Selected: {}",
-		// selectedCop.getId(), distance, selectedCop.isSelected());
+		if (selectedCop != null)
+			LOGGER.debug("Cop ID: {}, Distance: {}, Selected: {}", selectedCop.getId(), distance, selectedCop.isSelected());
+		else 
+			LOGGER.debug("No cop was selected.");
 		return selected;
 	}
 

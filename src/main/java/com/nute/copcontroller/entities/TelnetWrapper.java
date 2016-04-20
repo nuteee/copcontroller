@@ -1,4 +1,4 @@
-package com.nute.copcontroller.models;
+package com.nute.copcontroller.entities;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
